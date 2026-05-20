@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparador de Alcoholes</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #f9f9f9; color: #222; padding: 16px; }
+h1 { font-size: 18px; font-weight: 600; color: #1F4E79; margin-bottom: 4px; }
+.subtitle { font-size: 12px; color: #888; margin-bottom: 20px; }
+.section-label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; font-weight: 600; }
+.prop-btn { padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 1px solid #ddd; background: #fff; color: #555; transition: all 0.15s; }
+.prop-btn.active { background: #1F4E79; color: #fff; border-color: #1F4E79; font-weight: 500; }
+.prop-btn:hover { border-color: #aaa; }
+.chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #ddd; background: #fff; color: #666; user-select: none; transition: all 0.15s; }
+.chip.on-p { background: #E6F1FB; color: #0C447C; border-color: #378ADD; }
+.chip.on-s { background: #EAF3DE; color: #27500A; border-color: #639922; }
+.chip.on-t { background: #FAEEDA; color: #633806; border-color: #BA7517; }
+.chip.on-e { background: #FBEAF0; color: #4B1528; border-color: #D4537E; }
+.chip:hover { opacity: 0.8; }
+.tipo-label { font-size: 12px; font-weight: 600; margin-right: 6px; }
+.tipo-label.p { color: #185FA5; }
+.tipo-label.s { color: #3B6D11; }
+.tipo-label.t { color: #854F0B; }
+.tipo-label.e { color: #993556; }
+.stat-card { background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 14px 16px; }
+.stat-card .val { font-size: 20px; font-weight: 600; color: #1F4E79; margin: 4px 0; }
+.stat-card .name { font-size: 12px; color: #888; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 5px; }
+</style>
+</head>
+<body>
+
+<h1>Comparador de Alcoholes</h1>
+<p class="subtitle">Propiedades físicas de sustratos — selecciona alcoholes y propiedad</p>
+
+<div style="margin-bottom: 20px;">
+  <div class="section-label">Propiedad a comparar</div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <button class="prop-btn active" data-prop="pm" onclick="setProp(this)">PM (g/mol)</button>
+    <button class="prop-btn" data-prop="pb" onclick="setProp(this)">P. ebullición (°C)</button>
+    <button class="prop-btn" data-prop="dens" onclick="setProp(this)">Densidad (g/cm³)</button>
+    <button class="prop-btn" data-prop="pka" onclick="setProp(this)">pKa</button>
+  </div>
+</div>
+
+<div style="margin-bottom: 20px;">
+  <div class="section-label">Selecciona los alcoholes</div>
+
+  <div style="margin-bottom: 10px; display: flex; align-items: flex-start; flex-wrap: wrap; gap: 6px;">
+    <span class="tipo-label p">Primarios</span>
+    <div style="display: inline-flex; flex-wrap: wrap; gap: 6px;" id="chips-p"></div>
+  </div>
+  <div style="margin-bottom: 10px; display: flex; align-items: flex-start; flex-wrap: wrap; gap: 6px;">
+    <span class="tipo-label s">Secundarios</span>
+    <div style="display: inline-flex; flex-wrap: wrap; gap: 6px;" id="chips-s"></div>
+  </div>
+  <div style="margin-bottom: 10px; display: flex; align-items: flex-start; flex-wrap: wrap; gap: 6px;">
+    <span class="tipo-label t">Terciarios</span>
+    <div style="display: inline-flex; flex-wrap: wrap; gap: 6px;" id="chips-t"></div>
+  </div>
+  <div style="margin-bottom: 10px; display: flex; align-items: flex-start; flex-wrap: wrap; gap: 6px;">
+    <span class="tipo-label e">Especial</span>
+    <div style="display: inline-flex; flex-wrap: wrap; gap: 6px;" id="chips-e"></div>
+  </div>
+
+  <div style="display: flex; gap: 8px; margin-top: 10px;">
+    <button class="prop-btn" onclick="selectAll()">Seleccionar todos</button>
+    <button class="prop-btn" onclick="clearAll()">Limpiar</button>
+  </div>
+</div>
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; font-size: 12px; color: #555;">
+  <span><span class="legend-dot" style="background:#378ADD"></span>Primario</span>
+  <span><span class="legend-dot" style="background:#639922"></span>Secundario</span>
+  <span><span class="legend-dot" style="background:#BA7517"></span>Terciario</span>
+  <span><span class="legend-dot" style="background:#D4537E"></span>Especial</span>
+</div>
+
+<div style="position: relative; width: 100%; height: 360px; background:#fff; border-radius:10px; border:1px solid #eee; padding: 12px;">
+  <canvas id="mainChart" role="img" aria-label="Gráfico comparando propiedades físicas de alcoholes"></canvas>
+</div>
+
+<div id="stats-row" style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-top: 16px;"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const alcoholes = [
+  { name: 'Etanol',              tipo: 'p', pm: 46.07,  pb: 78.5,  dens: 0.789,  pka: 15.9  },
+  { name: '1-propanol',          tipo: 'p', pm: 60.10,  pb: 97.2,  dens: 0.8053, pka: 16.1  },
+  { name: 'Glicol etileno',      tipo: 'p', pm: 62.07,  pb: 197.3, dens: 1.113,  pka: 15.0  },
+  { name: '1-pentanol',          tipo: 'p', pm: 88.15,  pb: 137.5, dens: 0.8146, pka: 12.4  },
+  { name: 'Alc. bencilico',      tipo: 'p', pm: 108.14, pb: 205.3, dens: 1.0419, pka: 15.4  },
+  { name: '(R)-1-feniletanol',   tipo: 's', pm: 122.16, pb: 98.0,  dens: 1.014,  pka: 14.42 },
+  { name: 'Mentol',              tipo: 's', pm: 156.30, pb: 212.0, dens: 0.890,  pka: 15.3  },
+  { name: 'tert-Butanol',        tipo: 't', pm: 74.12,  pb: 84.41, dens: 0.800,  pka: 18.6  },
+  { name: '2-metil-2-butanol',   tipo: 't', pm: 88.15,  pb: 102.4, dens: 0.810,  pka: 18.0  },
+  { name: 'Catecol',             tipo: 'e', pm: 110.11, pb: 245.5, dens: 1.344,  pka: 9.45  },
+];
+
+const colores = {
+  p: { bg: '#378ADD', border: '#185FA5' },
+  s: { bg: '#639922', border: '#3B6D11' },
+  t: { bg: '#BA7517', border: '#854F0B' },
+  e: { bg: '#D4537E', border: '#993556' },
+};
+
+const propLabels = { pm: 'PM (g/mol)', pb: 'P. ebullición (°C)', dens: 'Densidad (g/cm³)', pka: 'pKa' };
+let selected = new Set(alcoholes.map(a => a.name));
+let currentProp = 'pm';
+let chart;
+
+function buildChips() {
+  ['p','s','t','e'].forEach(tipo => {
+    const container = document.getElementById('chips-' + tipo);
+    alcoholes.filter(a => a.tipo === tipo).forEach(a => {
+      const chip = document.createElement('span');
+      chip.className = 'chip on-' + tipo;
+      chip.textContent = a.name;
+      chip.dataset.name = a.name;
+      chip.dataset.tipo = tipo;
+      chip.onclick = () => toggleChip(chip, a.name, tipo);
+      container.appendChild(chip);
+    });
+  });
+}
+
+function toggleChip(chip, name, tipo) {
+  if (selected.has(name)) {
+    selected.delete(name);
+    chip.className = 'chip';
+  } else {
+    selected.add(name);
+    chip.className = 'chip on-' + tipo;
+  }
+  updateChart();
+}
+
+function selectAll() {
+  alcoholes.forEach(a => selected.add(a.name));
+  document.querySelectorAll('.chip').forEach(c => {
+    c.className = 'chip on-' + c.dataset.tipo;
+  });
+  updateChart();
+}
+
+function clearAll() {
+  selected.clear();
+  document.querySelectorAll('.chip').forEach(c => c.className = 'chip');
+  updateChart();
+}
+
+function setProp(btn) {
+  document.querySelectorAll('.prop-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentProp = btn.dataset.prop;
+  updateChart();
+}
+
+function updateChart() {
+  const filtered = alcoholes.filter(a => selected.has(a.name));
+  const labels = filtered.map(a => a.name);
+  const values = filtered.map(a => a[currentProp]);
+  const bgColors = filtered.map(a => colores[a.tipo].bg);
+  const borderColors = filtered.map(a => colores[a.tipo].border);
+
+  if (chart) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = values;
+    chart.data.datasets[0].backgroundColor = bgColors;
+    chart.data.datasets[0].borderColor = borderColors;
+    chart.data.datasets[0].label = propLabels[currentProp];
+    chart.options.scales.y.title.text = propLabels[currentProp];
+    chart.update();
+  }
+  updateStats(filtered, values);
+}
+
+function updateStats(filtered, values) {
+  const row = document.getElementById('stats-row');
+  if (!filtered.length) { row.innerHTML = ''; return; }
+  const maxIdx = values.indexOf(Math.max(...values));
+  const minIdx = values.indexOf(Math.min(...values));
+  const avg = (values.reduce((a,b) => a+b, 0) / values.length).toFixed(2);
+  row.innerHTML = `
+    <div class="stat-card">
+      <div class="section-label">Mayor valor</div>
+      <div class="val">${Math.max(...values).toFixed(2)}</div>
+      <div class="name">${filtered[maxIdx].name}</div>
+    </div>
+    <div class="stat-card">
+      <div class="section-label">Menor valor</div>
+      <div class="val">${Math.min(...values).toFixed(2)}</div>
+      <div class="name">${filtered[minIdx].name}</div>
+    </div>
+    <div class="stat-card">
+      <div class="section-label">Promedio</div>
+      <div class="val">${avg}</div>
+      <div class="name">${filtered.length} alcoholes</div>
+    </div>`;
+}
+
+buildChips();
+
+const ctx = document.getElementById('mainChart').getContext('2d');
+chart = new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: alcoholes.map(a => a.name),
+    datasets: [{
+      label: 'PM (g/mol)',
+      data: alcoholes.map(a => a.pm),
+      backgroundColor: alcoholes.map(a => colores[a.tipo].bg),
+      borderColor: alcoholes.map(a => colores[a.tipo].border),
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(3) + ' ' + (currentProp === 'pm' ? 'g/mol' : currentProp === 'pb' ? '°C' : currentProp === 'dens' ? 'g/cm³' : '') } }
+    },
+    scales: {
+      x: { ticks: { font: { size: 11 }, color: '#888', autoSkip: false, maxRotation: 35 }, grid: { display: false } },
+      y: { title: { display: true, text: 'PM (g/mol)', font: { size: 12 }, color: '#888' }, ticks: { color: '#888' }, grid: { color: 'rgba(0,0,0,0.06)' } }
+    }
+  }
+});
+
+updateStats(alcoholes, alcoholes.map(a => a.pm));
+</script>
+</body>
+</html>
